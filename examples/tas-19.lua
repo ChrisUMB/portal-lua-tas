@@ -1,12 +1,3 @@
---[[
-
-This is a TAS script for Chamber 19. The expected result is that
-it will do the spiderman route with the TAS shot save up to the
-first door, open it, and then end.
-
-]]
-
-
 -- Get access to TAS, which will be in `/lua/libraries/tas.lua`
 local tas = require("tas")
 
