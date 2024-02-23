@@ -310,19 +310,19 @@ function tas.start_yield(options, func)
         end
 
         console.msg(0x8888FF, "\n\nEnded TAS!\n\n")
-
-        if options.auto_pause then
-            console.exec("tas_pause 1")
-        end
-        
-        tas.wait(1)
-        console.exec("cl_mouseenable 1")
-        tas.reset()
     end)
 
     if not s then
         console.msg(0xFF8888, "TAS Error: " .. e .. "\n")
     end
+
+    if options.auto_pause then
+        console.exec("tas_pause 1")
+    end
+    
+    tas.wait(1)
+    console.exec("cl_mouseenable 1")
+    tas.reset()
 end
 
 --- Resets the TAS to its default state.
@@ -486,31 +486,6 @@ local function look_at_interpolated(target_pos, ticks, interp_function, suspend,
         player.set_ang(vec2(new_pitch, new_yaw))
         tas.wait(1)
     end
-end
-
-local function internal_aim(pitch, yaw, ticks, interp_func, suspend, mode)
-    if mode == nil then
-        mode = tas._aim_mode
-    end
-
-    local get_ang = player.get_ang
-    local set_ang = player.set_ang
-    if mode == AimMode.LOCAL then
-        -- TODO: Implement local aim
-        get_ang = player.get_local_ang
-        set_ang = player.set_local_ang
-    end
-
-    pitch = pitch or get_ang().x
-    yaw = yaw or get_ang().y
-
-    if not ticks then
-        set_ang(vec2(pitch, yaw))
-        return
-    end
-
-    suspend = suspend or false
-    look_interpolated(ticks, pitch, yaw, interp_func, suspend, get_ang, set_ang)
 end
 
 ---@alias target_fun fun():number,number
@@ -750,14 +725,6 @@ function tas.move_to_point(point, precise, extra_precise)
         return
     end
 
-    -- tas.strafe({
-    --     strafe_vectorial = true,
-    --     auto_jump = false,
-    --     strafe_type = StrafeType.W_STRAFE,
-    --     strafe_direction = StrafeDirection.STRAFE_YAW,
-    --     jump_type = JumpType.GLITCHESS,
-    -- })
-
     tas.strafe(StrafeVectorial.ON, AutoJump.ON, StrafeType.W_STRAFE, StrafeDirection.YAW, JumpType.GLITCHESS)
 
     local start_time = game.get_client_tick()
@@ -810,7 +777,7 @@ function tas.move_to_point(point, precise, extra_precise)
 
             tas_strafe_for(STRAFE_TICKS, STRAFE_SCALE)
             wait_until_zero_velocity()
-
+            
             yaw, dist = walk_to_point_math(pointA)
             if dist ~= 0 and extra_precise then
                 console.msg(0xFF5522, "ERROR: Did not reach intersection point, retrying (distance %f)\n", dist)
