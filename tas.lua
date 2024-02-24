@@ -1,5 +1,6 @@
 ---@class tas
 local tas = {}
+local tick = 0
 
 local fps_max = console.var_find("fps_max")
 local mat_norendering = console.var_find("mat_norendering")
@@ -200,6 +201,11 @@ function tas.aim_mode(aim_mode)
     return _aim_mode
 end
 
+--- Pauses the TAS.
+function tas.pause()
+    console.exec("tas_pause 0;wait 1;tas_pause 1")
+end
+
 ---@param ticks number|function|nil Sets the number of ticks to skip, or a function to test every tick. nil to wait 1 tick.
 ---@return number The number of ticks waited.
 ---@async
@@ -250,15 +256,14 @@ function tas.start_yield(options, func)
     local s, e = pcall(function()
         console.msg(0x8888FF, "\n\nStarting TAS...\n\n")
 
-        if not options.load and not options.map then
-            console.msg(0xFF8888, "TAS Error: No load or map specified!\n")
-            return
+        if options.load and options.map then
+           console.msg(0xFF8888, "TAS Error: Cannot have a load and map specified at the same time!\n")
+           return
         end
 
         tas.reset()
-        console.exec("sv_cheats 1; tas_anglespeed 0; tas_pause 0; cl_mouseenable 0; host_framerate 0.015")
-        fps_max:set_number(1.0 / 0.015)
-
+        console.exec("sv_cheats 1;tas_pause 0;cl_mouseenable 0;host_framerate 0.015")
+        
         if options.commands then
             local cmd = options.commands
 
@@ -281,35 +286,43 @@ function tas.start_yield(options, func)
             console.exec("load " .. options.load)
         elseif options.map then
             console.exec("map " .. options.map)
-        else
-            console.msg(0xFF8888, "TAS Error: No load or map specified!\n")
-            return
         end
 
-        events.client_active:wait()
+        if options.load or options.map then
+            events.client_active:wait()
+        end
         
         if options.auto_record then
-            game.start_recording(options.auto_record)
+            console.exec("spt_record %s", options.auto_record)
         end
-
+        
+        tick = 0
+        local cancel = events.tick:listen(function()
+            tick = tick + 1
+            console.dev_msg("TAS Tick: %d\n", tick)
+        end)
+        
         func()
 
+        cancel()
+
+        -- We write this anyway so that the demo parser can know when the TAS "ended" even if we didn't write a save.
+        console.exec("echo #SAVE#")
+        
         if options.auto_save then
             game.save(options.auto_save)
         end
 
-        -- We write this anyway so that the demo parser can know when the TAS "ended" even if we didn't write a save.
-        console.exec("echo #SAVE#")
 
+        console.msg(0x8888FF, "\n\nEnded TAS!\n\n")
+        
         if options.auto_record then
             if not options.auto_pause then
                 tas.wait(25) -- Wait 25 ticks to make sure the demo has a buffer at the end
             end
 
-            game.stop_recording()
+            console.exec("spt_record_stop")
         end
-
-        console.msg(0x8888FF, "\n\nEnded TAS!\n\n")
     end)
 
     if not s then
@@ -325,17 +338,24 @@ function tas.start_yield(options, func)
     tas.reset()
 end
 
+---@return integer tick The current tick that the TAS is on.
+function tas.get_tick()
+    return tick
+end
+
 --- Resets the TAS to its default state.
+-- TODO: Capture all delayed tasks related to TAS' and cancel them all.
 function tas.reset()
     spt_tas_anglespeed:set_number(0)
     spt_tas_strafe:set_bool(false)
     spt_tas_strafe_lgagst:set_bool(false)
     spt_tas_strafe_lgagst_min:set_number(150)
     spt_tas_strafe_lgagst_max:set_number(270)
-    spt_autojump:set_bool(false)
     spt_tas_strafe_scale:set_number(1.0)
-    tas.fast_forward(false, false)
+    spt_autojump:set_bool(false)
+    tas.playback_speed(1)
     console.exec("tas_aim_reset")
+    console.exec("tas_anglespeed 0")
     console.exec("tas_strafe_buttons \"\"")
     tas.aim_mode(AimMode.GLOBAL)
     input.reset()
