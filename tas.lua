@@ -203,7 +203,7 @@ end
 
 --- Pauses the TAS.
 function tas.pause()
-    console.exec("tas_pause 0;wait 1;tas_pause 1")
+    console.exec("tas_pause 1")
 end
 
 ---@param ticks number|function|nil Sets the number of ticks to skip, or a function to test every tick. nil to wait 1 tick.
@@ -226,7 +226,7 @@ function tas.wait(ticks)
     end
 
     ticks_waited = ticks
-    events.tick:wait(ticks)
+    events.sim_tick:wait(ticks)
     return ticks_waited
 end
 
@@ -235,6 +235,7 @@ end
 ---@field map string|nil The name of the map to load before the TAS starts.
 ---@field auto_save string|nil Enables auto saving, and sets the name of the save to use.
 ---@field auto_record string|nil Enables auto recording, and sets the name of the demo to use.
+---@field buffer_demo number|nil Enables demo buffering, which adds ticks to the end of the demo. Defaults to 25.
 ---@field auto_pause boolean|nil Enables auto TAS pause, disabled by default.
 ---@field seed number|nil Sets the seed to use for the TAS. This applies to IVP seeding, and will also apply to any other seeding that is found in the future.
 ---@field commands string|table|nil A list of commands to run before the TAS starts.
@@ -287,19 +288,19 @@ function tas.start_yield(options, func)
         elseif options.map then
             console.exec("map " .. options.map)
         end
-
-        if options.load or options.map then
-            events.client_active:wait()
-        end
         
         if options.auto_record then
             console.exec("spt_record %s", options.auto_record)
         end
+
+        if options.load or options.map then
+            events.sim_tick:wait()
+        end
         
         tick = 0
-        local cancel = events.tick:listen(function()
+
+        local cancel = events.sim_tick:listen(function()
             tick = tick + 1
-            console.dev_msg("TAS Tick: %d\n", tick)
         end)
         
         func()
@@ -316,11 +317,14 @@ function tas.start_yield(options, func)
 
         console.msg(0x8888FF, "\n\nEnded TAS!\n\n")
         
-        if options.auto_record then
-            if not options.auto_pause then
-                tas.wait(25) -- Wait 25 ticks to make sure the demo has a buffer at the end
-            end
+        local buffer = options.buffer_demo or 25
 
+        if options.auto_record then
+            -- We can't use tas.wait if auto_pause is enabled because sim_ticks don't occur when tas_pause is 1.
+            if not options.auto_pause and buffer and buffer >= 0 then
+                tas.wait(buffer)
+            end
+            
             console.exec("spt_record_stop")
         end
     end)
@@ -329,12 +333,12 @@ function tas.start_yield(options, func)
         console.msg(0xFF8888, "TAS Error: " .. e .. "\n")
     end
 
+    console.exec("cl_mouseenable 1")
     if options.auto_pause then
-        console.exec("tas_pause 1")
+        tas.pause()
     end
     
     tas.wait(1)
-    console.exec("cl_mouseenable 1")
     tas.reset()
 end
 
