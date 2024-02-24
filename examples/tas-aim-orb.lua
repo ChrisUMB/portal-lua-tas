@@ -1,13 +1,3 @@
---[[
-
-This is a TAS script for Chamber 19. The expected result is that
-this will shoot some portals to get into position, then show off
-some smooth camera movement to trace the orb as it flies around.
-It should trace the orb through the portal, and then without the
-portal, and then end.
-
-]]
-
 -- Get access to TAS, which will be in `/lua/libraries/tas.lua`
 local tas = require("tas")
 
@@ -27,7 +17,6 @@ tas.start({
 
     -- Enable TAS strafing with these options.
     tas.strafe(StrafeVectorial.ON, StrafeType.ACCEL, StrafeDirection.YAW, {yaw = 0})
-    
     -- Walk forward, look at the ground, then perform a QCE into blue.
     tas.wait(1)
     tas.aim(69, 0, 65)
@@ -69,7 +58,7 @@ tas.start({
     tas.wait(100)
     
     -- Locate the nearest orb.
-    local orb = entity.closest("CPropEnergyBall")
+    local orb = entity.closest("prop_energy_ball")
     
     -- Look at the orb by lerping for 50 ticks, then tracking it for 120 ticks.
     -- "true" at the end means to suspend.
@@ -78,7 +67,7 @@ tas.start({
     tas.aim(0.875158, -64.282082, 175, true)
     
     -- Orb died, get the new one.
-    orb = entity.closest("CPropEnergyBall") 
+    orb = entity.closest("prop_energy_ball")
     
     -- Look at the orb by lerping for 50 ticks, then tracking it for 200 ticks.
     -- Do all of that, while applying the transform of the orange portal, or "looking through" the blue.
